@@ -116,7 +116,6 @@ public class MainActivity extends AppCompatActivity {
     };
 
 
-    private TextView resultText;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -134,7 +133,7 @@ public class MainActivity extends AppCompatActivity {
 
         checkPermissions();
         tfliteDirection = loadModel("direction_model.tflite");
-        tfliteTraffic = loadModel("traffic_model.tflite");
+        tfliteTraffic = loadModel("traffic_sign_model.tflite");
 
 
         txtDirection = findViewById(R.id.txtDirection);
@@ -252,13 +251,13 @@ public class MainActivity extends AppCompatActivity {
         }
 
         Image mediaImage = imageProxy.getImage();
-        Bitmap bitmap = toBitmap(mediaImage);
+        Bitmap bitmap = toBitmap(imageProxy); // truyền imageProxy vào
         Bitmap grayscaleBitmap = toGrayscale(bitmap);
         Bitmap resizedBitmap = Bitmap.createScaledBitmap(grayscaleBitmap, 90, 90, true);
         ByteBuffer inputBuffer = convertBitmapToByteBuffer(resizedBitmap);
 
         float[][] output = new float[1][3]; // 3 lớp
-        tflite.run(inputBuffer, output);
+        tfliteDirection.run(inputBuffer, output);
         int predictedIndex = getMaxIndex(output[0]);
         String direction = directionLabels.get(predictedIndex);
 
@@ -270,17 +269,30 @@ public class MainActivity extends AppCompatActivity {
         imageProxy.close();
     }
 
-    private Bitmap toBitmap(Image image) {
-        Image.Plane[] planes = image.getPlanes();
+    private Bitmap toBitmap(ImageProxy image) {
+        @SuppressLint("UnsafeOptInUsageError")
+        ImageProxy.PlaneProxy[] planes = image.getPlanes();
         ByteBuffer yBuffer = planes[0].getBuffer();
-        byte[] yBytes = new byte[yBuffer.remaining()];
-        yBuffer.get(yBytes);
-        YuvImage yuvImage = new YuvImage(yBytes, ImageFormat.NV21, image.getWidth(), image.getHeight(), null);
+        ByteBuffer uBuffer = planes[1].getBuffer();
+        ByteBuffer vBuffer = planes[2].getBuffer();
+
+        int ySize = yBuffer.remaining();
+        int uSize = uBuffer.remaining();
+        int vSize = vBuffer.remaining();
+
+        byte[] nv21 = new byte[ySize + uSize + vSize];
+
+        yBuffer.get(nv21, 0, ySize);
+        vBuffer.get(nv21, ySize, vSize);
+        uBuffer.get(nv21, ySize + vSize, uSize);
+
+        YuvImage yuvImage = new YuvImage(nv21, ImageFormat.NV21, image.getWidth(), image.getHeight(), null);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         yuvImage.compressToJpeg(new Rect(0, 0, image.getWidth(), image.getHeight()), 100, out);
         byte[] jpegBytes = out.toByteArray();
         return BitmapFactory.decodeByteArray(jpegBytes, 0, jpegBytes.length);
     }
+
 
     private Bitmap toGrayscale(Bitmap original) {
         Bitmap grayscale = Bitmap.createBitmap(original.getWidth(), original.getHeight(), Bitmap.Config.ARGB_8888);
@@ -294,18 +306,20 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private ByteBuffer convertBitmapToByteBuffer(Bitmap bitmap) {
-        ByteBuffer buffer = ByteBuffer.allocateDirect(90 * 90 * 1);
+        ByteBuffer buffer = ByteBuffer.allocateDirect(90 * 90 * 4); // 4 bytes mỗi float
         buffer.order(ByteOrder.nativeOrder());
         for (int y = 0; y < 90; y++) {
             for (int x = 0; x < 90; x++) {
                 int pixel = bitmap.getPixel(x, y);
-                int r = (pixel >> 16) & 0xFF;
-                buffer.put((byte) r);
+                int r = (pixel >> 16) & 0xFF; // vì là ảnh grayscale, chỉ cần 1 kênh
+                float normalized = r / 255.0f;
+                buffer.putFloat(normalized);
             }
         }
         buffer.rewind();
         return buffer;
     }
+
 
     private int getMaxIndex(float[] array) {
         int maxIndex = 0;
