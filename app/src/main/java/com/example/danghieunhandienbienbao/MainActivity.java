@@ -365,10 +365,17 @@ public class MainActivity extends AppCompatActivity {
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == REQUEST_BLUETOOTH_PERMISSION) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                startCamera();
+            boolean allGranted = true;
+            for (int result : grantResults) {
+                if (result != PackageManager.PERMISSION_GRANTED) {
+                    allGranted = false;
+                    break;
+                }
+            }
+            if (allGranted) {
+                listPairedDevices();
             } else {
-                Toast.makeText(this, "Cần cấp quyền camera", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Cần cấp quyền Bluetooth và Camera để sử dụng ứng dụng", Toast.LENGTH_SHORT).show();
             }
         }
     }
