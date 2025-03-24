@@ -337,9 +337,9 @@ public class MainActivity extends AppCompatActivity {
 
         String command = "";
         switch (direction) {
-            case "trái": command = "L"; break;
-            case "phải": command = "R"; break;
-            case "thẳng": command = "F"; break;
+            case "TRÁI": command = "L"; break;
+            case "PHẢI": command = "R"; break;
+            case "THẲNG": command = "F"; break;
         }
 
         try {
