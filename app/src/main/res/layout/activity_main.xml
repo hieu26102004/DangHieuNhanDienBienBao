@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"
+    tools:context=".MainActivity">
+
+    <androidx.camera.view.PreviewView
+        android:id="@+id/previewView"
+        android:layout_width="match_parent"
+        android:layout_height="300dp"/>
+
+    <TextView
+        android:id="@+id/txtDirection"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Hướng: "
+        android:textSize="18sp"
+        android:textColor="#FFFFFF"
+        android:layout_marginTop="16dp"/>
+
+    <TextView
+        android:id="@+id/txtTraffic"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Biển báo: "
+        android:textSize="18sp"
+        android:textColor="#FFFFFF"
+        android:layout_marginTop="8dp"/>
+
+
+    <!-- Danh sách thiết bị Bluetooth -->
+    <ListView
+        android:id="@+id/bluetoothListView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:dividerHeight="1dp" />
+
+    <!-- Các nút điều khiển -->
+    <Button
+        android:id="@+id/btnTien"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Tiến" />
+
+    <Button
+        android:id="@+id/btnLui"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Lùi" />
+
+    <Button
+        android:id="@+id/btnTrai"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Trái" />
+
+    <Button
+        android:id="@+id/btnPhai"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Phải" />
+
+    <Button
+        android:id="@+id/btnDung"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Dừng" />
+
+</LinearLayout>
