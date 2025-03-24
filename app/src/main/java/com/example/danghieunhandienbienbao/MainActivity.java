@@ -46,7 +46,7 @@ public class MainActivity extends AppCompatActivity {
     private ExecutorService cameraExecutor;
     private Interpreter tfliteDirection, tfliteTraffic;
     private TextView txtDirection, txtTraffic;
-    private List<String> directionLabels = Arrays.asList("TRÁI", "THẲNG", "PHẢI");
+    private List<String> directionLabels = Arrays.asList("TRÁI", "PHẢI ", "THẲNG");
     PreviewView previewView;
 
 
