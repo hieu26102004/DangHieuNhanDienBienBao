@@ -48,6 +48,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView txtDirection, txtTraffic;
     private List<String> directionLabels = Arrays.asList("TRÁI", "PHẢI ", "THẲNG");
     PreviewView previewView;
+    private String lastSentDirection = ""; // Lưu hướng đã gửi lần trước
 
 
     private final String[] trafficLabels = {
@@ -223,7 +224,7 @@ public class MainActivity extends AppCompatActivity {
             try {
                 ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
                 CameraSelector cameraSelector = new CameraSelector.Builder()
-                        .requireLensFacing(CameraSelector.LENS_FACING_BACK)
+                        .requireLensFacing(CameraSelector.LENS_FACING_FRONT)
                         .build();
 
                 Preview preview = new Preview.Builder().build();
@@ -251,12 +252,14 @@ public class MainActivity extends AppCompatActivity {
         }
 
         Image mediaImage = imageProxy.getImage();
-        Bitmap bitmap = toBitmap(imageProxy); // truyền imageProxy vào
+        Bitmap bitmap = toBitmap(imageProxy);
         Bitmap grayscaleBitmap = toGrayscale(bitmap);
-        Bitmap resizedBitmap = Bitmap.createScaledBitmap(grayscaleBitmap, 90, 90, true);
+        Bitmap croppedBitmap = cropBottomThird(grayscaleBitmap); // Cắt ảnh chính giữa thành hình vuông
+        Bitmap resizedBitmap = Bitmap.createScaledBitmap(croppedBitmap, 90, 90, true); // Resize đúng kích thước model
+
         ByteBuffer inputBuffer = convertBitmapToByteBuffer(resizedBitmap);
 
-        float[][] output = new float[1][3]; // 3 lớp
+        float[][] output = new float[1][3]; // 3 lớp cho hướng đi
         tfliteDirection.run(inputBuffer, output);
         int predictedIndex = getMaxIndex(output[0]);
         String direction = directionLabels.get(predictedIndex);
@@ -268,6 +271,7 @@ public class MainActivity extends AppCompatActivity {
 
         imageProxy.close();
     }
+
 
     private Bitmap toBitmap(ImageProxy image) {
         @SuppressLint("UnsafeOptInUsageError")
@@ -304,6 +308,15 @@ public class MainActivity extends AppCompatActivity {
         canvas.drawBitmap(original, 0, 0, paint);
         return grayscale;
     }
+    private Bitmap cropBottomThird(Bitmap srcBmp) {
+        int width = srcBmp.getWidth();
+        int height = srcBmp.getHeight();
+        int cropHeight = height / 3;
+
+        // Cắt 1/3 dưới cùng của ảnh (từ vị trí 2/3 chiều cao)
+        return Bitmap.createBitmap(srcBmp, 0, height - cropHeight, width, cropHeight);
+    }
+
 
     private ByteBuffer convertBitmapToByteBuffer(Bitmap bitmap) {
         ByteBuffer buffer = ByteBuffer.allocateDirect(90 * 90 * 4); // 4 bytes mỗi float
@@ -333,7 +346,7 @@ public class MainActivity extends AppCompatActivity {
         return maxIndex;
     }
     private void sendDirectionViaBluetooth(String direction) {
-        if (outputStream == null) return;
+        if (outputStream == null || direction.equals(lastSentDirection)) return;
 
         String command = "";
         switch (direction) {
@@ -344,10 +357,12 @@ public class MainActivity extends AppCompatActivity {
 
         try {
             outputStream.write(command.getBytes());
+            lastSentDirection = direction; // Cập nhật hướng đã gửi
         } catch (IOException e) {
             Log.e("Bluetooth", "Gửi lệnh thất bại", e);
         }
     }
+
     @Override
     protected void onDestroy() {
         super.onDestroy();

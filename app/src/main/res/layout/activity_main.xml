@@ -6,12 +6,15 @@
     android:orientation="vertical"
     android:padding="16dp"
     tools:context=".MainActivity">
-
-    <androidx.camera.view.PreviewView
-        android:id="@+id/previewView"
-        android:layout_width="match_parent"
-        android:layout_height="300dp"/>
-
+    <androidx.constraintlayout.widget.ConstraintLayout
+    android:layout_height="wrap_content"
+        android:layout_width="match_parent">
+        <androidx.camera.view.PreviewView
+            android:id="@+id/previewView"
+            android:layout_width="match_parent"
+            android:layout_height="300dp"
+            tools:ignore="MissingConstraints" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
     <TextView
         android:id="@+id/txtDirection"
         android:layout_width="wrap_content"
