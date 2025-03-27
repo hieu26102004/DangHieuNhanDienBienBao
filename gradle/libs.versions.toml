@@ -11,7 +11,9 @@ tensorflowLite = "2.12.0"
 tensorflowLiteTaskVision = "0.4.1"
 cameraX = "1.3.0" # Thêm dòng này
 mlkitVisionCommon = "17.3.0"
-core = "1.48.0" # Cập nhật phiên bản mới nhất
+core = "1.48.0"
+litertSupportApi = "1.2.0"
+objectDetectionCommon = "18.0.0" # Cập nhật phiên bản mới nhất
 
 [libraries]
 mlkit-vision-common = { group = "com.google.mlkit", name = "vision-common", version.ref = "mlkitVisionCommon" }
@@ -31,6 +33,8 @@ camera-camera2 = { group = "androidx.camera", name = "camera-camera2", version.r
 camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "cameraX" }
 camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "cameraX" }
 core = { group = "com.google.ar", name = "core", version.ref = "core" }
+litert-support-api = { group = "com.google.ai.edge.litert", name = "litert-support-api", version.ref = "litertSupportApi" }
+object-detection-common = { group = "com.google.mlkit", name = "object-detection-common", version.ref = "objectDetectionCommon" }
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 

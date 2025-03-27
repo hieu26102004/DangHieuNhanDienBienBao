@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.AssetFileDescriptor;
 import android.graphics.*;
+import android.graphics.Camera;
 import android.graphics.ImageFormat;
 import android.graphics.YuvImage;
 import android.media.Image;
@@ -23,6 +24,7 @@ import androidx.core.content.ContextCompat;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import org.tensorflow.lite.Interpreter;
+import org.tensorflow.lite.support.common.FileUtil;
 
 import java.io.*;
 import java.nio.*;
@@ -34,89 +36,64 @@ import java.util.concurrent.Executors;
 import androidx.camera.view.PreviewView;
 
 public class MainActivity extends AppCompatActivity {
-
+    private static final String TAG = "AutoCar";
     private static final int REQUEST_ENABLE_BT = 1;
     private static final int REQUEST_BLUETOOTH_PERMISSION = 2;
-
+    private ExecutorService executorService;
     private BluetoothAdapter bluetoothAdapter;
     private BluetoothSocket bluetoothSocket;
     private OutputStream outputStream;
     private ArrayAdapter<String> arrayAdapter;
-    private Interpreter tflite;
     private ExecutorService cameraExecutor;
     private Interpreter tfliteDirection, tfliteTraffic;
     private TextView txtDirection, txtTraffic;
-    private List<String> directionLabels = Arrays.asList("TRÁI", "PHẢI ", "THẲNG");
-    PreviewView previewView;
-    private String lastSentDirection = ""; // Lưu hướng đã gửi lần trước
-
-
-    private final String[] trafficLabels = {
-            "Giới hạn tốc độ (20km/h)",                        // 0
-            "Giới hạn tốc độ (30km/h)",                        // 1
-            "Giới hạn tốc độ (50km/h)",                        // 2
-            "Giới hạn tốc độ (60km/h)",                        // 3
-            "Giới hạn tốc độ (70km/h)",                        // 4
-            "Giới hạn tốc độ (80km/h)",                        // 5
-            "Hết giới hạn tốc độ (80km/h)",                    // 6
-            "Giới hạn tốc độ (100km/h)",                       // 7
-            "Giới hạn tốc độ (120km/h)",                       // 8
-            "Cấm vượt",                                        // 9
-            "Cấm vượt xe tải",                                 // 10
-            "Ưu tiên đường chính",                             // 11
-            "Đường ưu tiên",                                   // 12
-            "Nhường đường",                                    // 13
-            "Dừng lại",                                        // 14
-            "Cấm phương tiện",                                 // 15
-            "Cấm xe tải",                                      // 16
-            "Cấm vào",                                         // 17
-            "Nguy hiểm chung",                                 // 18
-            "Khúc cua nguy hiểm bên trái",                    // 19
-            "Khúc cua nguy hiểm bên phải",                    // 20
-            "Stop",                                    // 21
-            "Đường trơn trượt",                                // 22
-            "Đường hẹp bên phải",                              // 23
-            "Công trường",                                     // 24
-            "Đèn tín hiệu giao thông",                         // 25
-            "Người đi bộ",                                     // 26
-            "Trẻ em băng qua đường",                           // 27
-            "Xe đạp băng qua",                                 // 28
-            "Cảnh báo băng tuyết/đá",                          // 29
-            "Động vật hoang dã",                               // 30
-            "Hết giới hạn cảnh báo",                           // 31
-            "Phải đi thẳng",                                   // 32
-            "Chỉ được rẽ phải",                                // 33
-            "Đi thẳng",                               // 34
-            "Rẽ trái",                           // 35
-            "Đi thẳng hoặc rẽ phải",                           // 36
-            "Đi bên phải vòng xuyến",                          // 37
-            "Chỉ đường dành cho xe cơ giới",                   // 38
-            "Hết lệnh cấm vượt",                               // 39
-            "Hết lệnh cấm vượt xe tải",                        // 40
-            "Giữ khoảng cách an toàn",                         // 41
-            "Cấm quay đầu",                                    // 42
-            "Cấm rẽ trái",                                     // 43
-            "Cấm rẽ phải",                                     // 44
-            "Hướng đi bắt buộc",                               // 45
-            "Vạch sang đường",                                 // 46
-            "Làn đường dành cho xe buýt",                      // 47
-            "Cấm dừng đỗ",                                     // 48
-            "Cấm còi",                                         // 49
-            "Hết tất cả lệnh cấm",                             // 50
-            "Cảnh báo tàu điện",                               // 51
-            "Đường cụt",                                       // 52
-            "Vượt xe máy",                                     // 53
-            "Biển phụ",                                        // 54
-            "Giao nhau với đường ưu tiên",                    // 55
-            "Kết thúc mọi lệnh cấm",                           // 56
-            "Biển báo cấm đi ngược chiều",                     // 57
-            "Biển cảnh báo đường đôi bắt đầu",                 // 58
-            "Biển cảnh báo đường đôi kết thúc",                // 59
-            "Biển cảnh báo đường đôi bắt đầu",                 // 60 ❌ Trùng với 58
-            "Biển cảnh báo đường đôi kết thúc"                 // 61 ❌ Trùng với 59
+    private List<String> directionLabels = Arrays.asList("TRÁI", "PHẢI", "THẲNG");
+    String[] trafficSignLabels = {
+            "00forb_speed_over_20",
+            "01forb_speed_over_30",
+            "02forb_speed_over_50",
+            "03forb_speed_over_60",
+            "04forb_speed_over_70",
+            "05forb_speed_over_80",
+            "07forb_speed_over_100",
+            "08forb_speed_over_120",
+            "09no_overtaking",
+            "10no_overtaking_truck",
+            "11priority_road_ahead",
+            "12priority_road",
+            "13yield",
+            "14stop",
+            "15no_vehicles",
+            "16truck_mandatory",
+            "17no_entry",
+            "18danger_warning",
+            "19left_curve",
+            "20right_curve",
+            "21dangerous_curves",
+            "22uneven_road",
+            "23slippery_road",
+            "24right_narrowing",
+            "25roadwork",
+            "26traffic_light_ahead",
+            "27pedestrian_crossing",
+            "28school_zone",
+            "29bicycle_crossing",
+            "30snow_warning",
+            "31wild_animal_crossing",
+            "32no_stopping",
+            "33no_right_turn",
+            "34no_left_turn",
+            "35no_straight_ahead",
+            "36no_straight_or_right",
+            "37no_straight_or_left",
+            "38turn_down_right",
+            "39turn_down_left",
+            "40turn_roundabou",
+            "41end_no_overtaking",
+            "42end_no_overtaking_truck",
     };
-
-
+    PreviewView previewView;
+    private String lastSentDirection = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -131,10 +108,18 @@ public class MainActivity extends AppCompatActivity {
         bluetoothListView.setAdapter(arrayAdapter);
 
         cameraExecutor = Executors.newSingleThreadExecutor();
+        executorService = Executors.newFixedThreadPool(2);
+
+        Interpreter.Options options = new Interpreter.Options();
+        options.setUseXNNPACK(false); // Tắt XNNPACK
+        try {
+            tfliteTraffic = new Interpreter(loadModelFile("best_float32.tflite"), options);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
 
         checkPermissions();
         tfliteDirection = loadModel("direction_model.tflite");
-        tfliteTraffic = loadModel("traffic_sign_model.tflite");
 
 
         txtDirection = findViewById(R.id.txtDirection);
@@ -147,6 +132,14 @@ public class MainActivity extends AppCompatActivity {
             String address = arrayAdapter.getItem(position).split("\\n")[1];
             connectToDevice(address);
         });
+    }
+    private MappedByteBuffer loadModelFile(String modelPath) throws IOException {
+        AssetFileDescriptor fileDescriptor = getAssets().openFd(modelPath);
+        FileInputStream inputStream = new FileInputStream(fileDescriptor.getFileDescriptor());
+        FileChannel fileChannel = inputStream.getChannel();
+        long startOffset = fileDescriptor.getStartOffset();
+        long declaredLength = fileDescriptor.getDeclaredLength();
+        return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength);
     }
 
     private void checkPermissions() {
@@ -218,13 +211,23 @@ public class MainActivity extends AppCompatActivity {
             return null;
         }
     }
+    private Interpreter loadTrafficSignModel(String modelName) {
+        try {
+            tfliteTraffic = new Interpreter(FileUtil.loadMappedFile(this, modelName));
+            return tfliteTraffic;
+        } catch (Exception e) {
+            e.printStackTrace();
+            Toast.makeText(this, "Lỗi tải model", Toast.LENGTH_SHORT).show();
+            return null;
+        }
+    }
     private void startCamera() {
         ListenableFuture<ProcessCameraProvider> cameraProviderFuture = ProcessCameraProvider.getInstance(this);
         cameraProviderFuture.addListener(() -> {
             try {
                 ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
                 CameraSelector cameraSelector = new CameraSelector.Builder()
-                        .requireLensFacing(CameraSelector.LENS_FACING_FRONT)
+                        .requireLensFacing(CameraSelector.LENS_FACING_BACK)
                         .build();
 
                 Preview preview = new Preview.Builder().build();
@@ -244,6 +247,22 @@ public class MainActivity extends AppCompatActivity {
         }, ContextCompat.getMainExecutor(this));
     }
 
+    private float[][][][] bitmapToInput(Bitmap bitmap) {
+        float[][][][] input = new float[1][640][640][3];
+
+        for (int y = 0; y < 640; y++) {
+            for (int x = 0; x < 640; x++) {
+                int pixel = bitmap.getPixel(x, y);
+
+                input[0][y][x][0] = ((pixel >> 16) & 0xFF) / 255.0f; // Red
+                input[0][y][x][1] = ((pixel >> 8) & 0xFF) / 255.0f;  // Green
+                input[0][y][x][2] = (pixel & 0xFF) / 255.0f;         // Blue
+            }
+        }
+
+        return input;
+    }
+
     @OptIn(markerClass = ExperimentalGetImage.class)
     private void analyzeImage(ImageProxy imageProxy) {
         if (imageProxy == null || imageProxy.getImage() == null) {
@@ -254,22 +273,62 @@ public class MainActivity extends AppCompatActivity {
         Image mediaImage = imageProxy.getImage();
         Bitmap bitmap = toBitmap(imageProxy);
         Bitmap grayscaleBitmap = toGrayscale(bitmap);
-        Bitmap croppedBitmap = cropBottomThird(grayscaleBitmap); // Cắt ảnh chính giữa thành hình vuông
-        Bitmap resizedBitmap = Bitmap.createScaledBitmap(croppedBitmap, 90, 90, true); // Resize đúng kích thước model
+        // Tách ảnh thành 2 phần
+        Bitmap topTwoThirds = Bitmap.createBitmap(grayscaleBitmap, 0, 0, grayscaleBitmap.getWidth(), 2 * grayscaleBitmap.getHeight() / 3);
+        Bitmap bottomThird = cropBottomThird(grayscaleBitmap);
 
-        ByteBuffer inputBuffer = convertBitmapToByteBuffer(resizedBitmap);
-
-        float[][] output = new float[1][3]; // 3 lớp cho hướng đi
-        tfliteDirection.run(inputBuffer, output);
-        int predictedIndex = getMaxIndex(output[0]);
-        String direction = directionLabels.get(predictedIndex);
-
-        runOnUiThread(() -> {
-            txtDirection.setText("Hướng: " + direction);
-            sendDirectionViaBluetooth(direction);
-        });
+        executorService.execute(() -> processTrafficSign(topTwoThirds));
+        executorService.execute(() -> processLineDetection(bottomThird));
 
         imageProxy.close();
+    }
+
+    private void processTrafficSign(Bitmap bitmap) {
+        Bitmap scaledBitmap = Bitmap.createScaledBitmap(bitmap, 640, 640, true);
+        float[][][][] input = bitmapToInput(scaledBitmap);
+
+        float[][][] output = new float[1][59][8400];
+        tfliteTraffic.run(input, output);
+
+
+        float confidenceThreshold = 0.5f;
+
+        for (int i = 0; i < output[0][0].length; i++) {
+            float confidence = output[0][4][i];
+            if (confidence > confidenceThreshold) {
+                float x = output[0][0][i];
+                float y = output[0][1][i];
+                float w = output[0][2][i];
+                float h = output[0][3][i];
+                int classId = (int) output[0][5][i];
+
+                String signName = (classId >= 0 && classId < trafficSignLabels.length) ? trafficSignLabels[classId] : "unknown";
+                Log.d("YOLO", "Biển báo: " + signName + " | Độ tin cậy: " + confidence);
+
+                runOnUiThread(() -> {
+                    txtTraffic.setText("Biển báo nhận diện: " + signName);
+                    sendDirectionViaBluetooth(signName);
+                });
+            }
+        }
+    }
+
+
+    private void processLineDetection(Bitmap bitmap) {
+        Bitmap resizedBitmap = Bitmap.createScaledBitmap(bitmap, 90, 90, true);
+        ByteBuffer inputBuffer = convertBitmapToByteBuffer(resizedBitmap);
+
+        float[][] output = new float[1][3];
+        tfliteDirection.run(inputBuffer, output);
+
+        int predictedIndex = getMaxIndex(output[0]);
+        String lineDirection = directionLabels.get(predictedIndex);
+        Log.d("DEBUG", "directionLabels = " + lineDirection);
+
+        runOnUiThread(() -> {
+            txtDirection.setText("Line: " + lineDirection);
+            sendDirectionViaBluetooth(lineDirection);
+        });
     }
 
 
@@ -333,11 +392,10 @@ public class MainActivity extends AppCompatActivity {
         return buffer;
     }
 
-
     private int getMaxIndex(float[] array) {
         int maxIndex = 0;
         float maxValue = array[0];
-        for (int i = 1; i < array.length; i++) {
+        for (int i = 0; i < array.length; i++) {
             if (array[i] > maxValue) {
                 maxValue = array[i];
                 maxIndex = i;
@@ -369,8 +427,10 @@ public class MainActivity extends AppCompatActivity {
         try {
             if (outputStream != null) outputStream.close();
             if (bluetoothSocket != null) bluetoothSocket.close();
-            if (tflite != null) tflite.close();
-            cameraExecutor.shutdown();
+            if (tfliteTraffic != null) tfliteTraffic.close();
+            if (executorService != null && !executorService.isShutdown()) {
+                executorService.shutdown();
+            }
         } catch (IOException e) {
             Log.e("Bluetooth", "Đóng kết nối thất bại", e);
         }
